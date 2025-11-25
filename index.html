@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drum Rhythm Manager Pro</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Ícones do Google -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+
+    <div class="app-container">
+        <header>
+            <h1><span class="material-icons">equalizer</span> Drum Rhythm Manager</h1>
+        </header>
+
+        <!-- 1. ÁREA DE UPLOAD (Restaurada e Estilizada) -->
+        <section class="card upload-section">
+            <div class="card-header">
+                <span class="material-icons">cloud_upload</span>
+                <h2>Novo Ritmo</h2>
+            </div>
+            
+            <div class="upload-grid">
+                <div class="file-area">
+                    <input type="file" id="fileInput" accept="audio/*" hidden>
+                    <button id="btnSelectFile" class="btn btn-outline">
+                        <span class="material-icons">folder_open</span> Escolher Arquivo
+                    </button>
+                    <span id="fileNameDisplay">Nenhum arquivo...</span>
+                </div>
+
+                <div class="meta-area">
+                    <input type="text" id="trackName" placeholder="Nome do Ritmo (Ex: Rock 120)">
+                    <input type="number" id="trackBPM" placeholder="BPM" value="120" min="40" max="240">
+                </div>
+
+                <button id="btnSave" class="btn btn-primary full-width">
+                    <span class="material-icons">save</span> Salvar na Biblioteca
+                </button>
+            </div>
+            <p id="statusMsg" class="status-text"></p>
+        </section>
+
+        <!-- 2. PLAYER PRINCIPAL -->
+        <section class="card player-section">
+            <div class="display-info">
+                <h2 id="displayTitle">Selecione uma música...</h2>
+                <div class="bpm-display">
+                    <span id="displayBPM">0</span> <small>BPM</small>
+                    <div id="led" class="led-indicator"></div>
+                </div>
+            </div>
+
+            <!-- Barra de Progresso -->
+            <div class="progress-container">
+                <span id="timeCurrent">00:00</span>
+                <input type="range" id="progressBar" value="0" min="0" max="100" step="0.1">
+                <span id="timeTotal">00:00</span>
+            </div>
+
+            <!-- Controles Principais -->
+            <div class="controls-main">
+                <button id="btnStop" class="btn-round btn-danger"><span class="material-icons">stop</span></button>
+                <button id="btnPlay" class="btn-round btn-primary"><span class="material-icons">play_arrow</span></button>
+                <button id="btnMetronome" class="btn-round btn-secondary"><span class="material-icons">hourglass_empty</span></button>
+            </div>
+
+            <!-- Controles de Ajuste (Sliders) -->
+            <div class="sliders-grid">
+                <div class="slider-group">
+                    <label><span class="material-icons">speed</span> Velocidade (BPM)</label>
+                    <div class="bpm-control">
+                        <input type="range" id="bpmSlider" min="60" max="220" value="120" disabled>
+                        <button id="btnResetBPM" class="btn-tiny">Reset</button>
+                    </div>
+                </div>
+                <div class="slider-group">
+                    <label><span class="material-icons">music_note</span> Vol. Música</label>
+                    <input type="range" id="volMusic" min="0" max="100" value="80">
+                </div>
+                <div class="slider-group">
+                    <label><span class="material-icons">timer</span> Vol. Metrônomo</label>
+                    <input type="range" id="volClick" min="0" max="100" value="60">
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. BIBLIOTECA -->
+        <section class="library-section">
+            <h3><span class="material-icons">library_music</span> Biblioteca</h3>
+            <ul id="trackList" class="track-list">
+                <!-- Lista gerada via JS -->
+            </ul>
+            <button id="btnClearAll" class="btn-text-danger">Apagar Tudo</button>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
