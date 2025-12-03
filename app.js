@@ -1,6 +1,23 @@
-// app.js - Versão Final Profissional
+// app.js - Com Ritmos da sua Lista
 
-// --- 1. CONFIGURAÇÃO DE ÁUDIO ---
+// --- 1. LISTA DE RITMOS DO APP ---
+const presets = [
+    { name: "Arrocha", bpm: 134, url: "sounds/arrocha134.mp3" },
+    { name: "Axé", bpm: 100, url: "sounds/axe100.mp3" },
+    { name: "Baião", bpm: 95, url: "sounds/baiao95.mp3" },
+    { name: "Bolero", bpm: 110, url: "sounds/bolero110.mp3" },
+    { name: "Guarania", bpm: 110, url: "sounds/guarania110.mp3" },
+    { name: "Marchinha de Carnaval", bpm: 130, url: "sounds/marchinha130.mp3" },
+    { name: "Pagode Anos 90", bpm: 90, url: "sounds/pagode90.mp3" },
+    { name: "Rancheira Valsa", bpm: 84, url: "sounds/rancheira84.mp3" },
+    { name: "Reggae", bpm: 160, url: "sounds/reggae160.mp3" },
+    { name: "Rock", bpm: 140, url: "sounds/rock140.mp3" },
+    { name: "Samba", bpm: 70, url: "sounds/samba70.mp3" },
+    { name: "Vaneira", bpm: 90, url: "sounds/vaneira90.mp3" },
+    { name: "Xote", bpm: 90, url: "sounds/xote90.mp3" }
+];
+
+// --- 2. CONFIGURAÇÃO DE ÁUDIO ---
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 const ctx = new AudioContext();
 
@@ -25,7 +42,7 @@ let originalBPM = 120;
 let currentBPM = 120;
 let isMetronomeOn = false;
 
-// --- 2. BANCO DE DADOS (IndexedDB) ---
+// --- 3. BANCO DE DADOS (IndexedDB) ---
 const DB_NAME = "DrumProDB";
 
 function openDB() {
@@ -82,7 +99,7 @@ async function clearDB() {
     loadLibrary();
 }
 
-// --- 3. MOTOR DE ÁUDIO ---
+// --- 4. MOTOR DE ÁUDIO ---
 
 function playClick(time) {
     const osc = ctx.createOscillator();
@@ -100,7 +117,6 @@ function scheduler() {
     while (nextNoteTime < ctx.currentTime + 0.1) {
         if (isMetronomeOn) {
             playClick(nextNoteTime);
-            // Visual LED
             const timeToBlink = (nextNoteTime - ctx.currentTime) * 1000;
             setTimeout(() => {
                 const led = document.getElementById('led');
@@ -116,8 +132,20 @@ function scheduler() {
     }
 }
 
-async function loadAudioForPlayback(arrayBuffer) {
+async function loadAudioForPlayback(data, isUrl = false) {
     try {
+        let arrayBuffer;
+        
+        if (isUrl) {
+            // Se for URL (Preset), baixa o arquivo
+            const response = await fetch(data);
+            if (!response.ok) throw new Error("Arquivo não encontrado");
+            arrayBuffer = await response.arrayBuffer();
+        } else {
+            // Se for do Banco de Dados
+            arrayBuffer = data;
+        }
+
         const audioData = await ctx.decodeAudioData(arrayBuffer.slice(0));
         musicBuffer = audioData;
         trackDuration = musicBuffer.duration;
@@ -125,7 +153,7 @@ async function loadAudioForPlayback(arrayBuffer) {
         return true;
     } catch (e) {
         console.error(e);
-        alert("Erro ao decodificar áudio.");
+        alert("Erro ao carregar áudio. Verifique se o arquivo existe na pasta 'sounds'.");
         return false;
     }
 }
@@ -138,232 +166,4 @@ function play() {
     musicSource.buffer = musicBuffer;
     musicSource.connect(musicGain);
 
-    // Ajuste de Velocidade
-    const playbackRate = currentBPM / originalBPM;
-    musicSource.playbackRate.value = playbackRate;
-
-    if (pauseOffset >= trackDuration) pauseOffset = 0;
-    startTime = ctx.currentTime - (pauseOffset / playbackRate);
-
-    musicSource.start(0, pauseOffset);
-    
-    isPlaying = true;
-    nextNoteTime = ctx.currentTime;
-    scheduler();
-    updateProgress();
-
-    togglePlayBtn(true);
-}
-
-function pause() {
-    if (musicSource) {
-        try { musicSource.stop(); } catch(e){}
-    }
-    isPlaying = false;
-    cancelAnimationFrame(metronomeInterval);
-    
-    const playbackRate = currentBPM / originalBPM;
-    pauseOffset = (ctx.currentTime - startTime) * playbackRate;
-    
-    togglePlayBtn(false);
-}
-
-function stop() {
-    pause();
-    pauseOffset = 0;
-    updateUIProgress(0);
-}
-
-function togglePlayBtn(playing) {
-    const btn = document.getElementById('btnPlay');
-    btn.innerHTML = playing ? '<span class="material-icons">pause</span>' : '<span class="material-icons">play_arrow</span>';
-    btn.onclick = playing ? pause : play;
-}
-
-// --- 4. UI UPDATE ---
-
-function updateProgress() {
-    if (!isPlaying) return;
-    const playbackRate = currentBPM / originalBPM;
-    const current = (ctx.currentTime - startTime) * playbackRate;
-
-    if (current >= trackDuration) {
-        stop();
-    } else {
-        updateUIProgress(current);
-        requestAnimationFrame(updateProgress);
-    }
-}
-
-function updateUIProgress(time) {
-    const pct = (time / trackDuration) * 100;
-    document.getElementById('progressBar').value = pct || 0;
-    document.getElementById('timeCurrent').textContent = formatTime(time);
-}
-
-function formatTime(s) {
-    const min = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${min}:${sec.toString().padStart(2, '0')}`;
-}
-
-// --- 5. GERENCIAMENTO DA BIBLIOTECA ---
-
-async function loadLibrary() {
-    const list = document.getElementById('trackList');
-    list.innerHTML = '<li style="color:#666; padding:10px;">Carregando...</li>';
-    
-    const tracks = await getAllTracks();
-    list.innerHTML = "";
-
-    if (tracks.length === 0) {
-        list.innerHTML = '<li style="color:#666; padding:10px; text-align:center;">Nenhum ritmo salvo.</li>';
-        return;
-    }
-
-    tracks.forEach(track => {
-        const li = document.createElement('li');
-        li.className = 'track-item';
-        li.innerHTML = `
-            <div class="track-info">
-                <strong>${track.name}</strong>
-                <span>${track.bpm} BPM</span>
-            </div>
-            <button class="btn-icon-danger" onclick="removeTrack(${track.id}, event)">
-                <span class="material-icons">delete</span>
-            </button>
-        `;
-        li.onclick = () => selectTrack(track, li);
-        list.appendChild(li);
-    });
-}
-
-async function selectTrack(track, element) {
-    stop();
-    document.getElementById('displayTitle').textContent = "Carregando...";
-    
-    // UI Active State
-    document.querySelectorAll('.track-item').forEach(el => el.classList.remove('active'));
-    if(element) element.classList.add('active');
-
-    const success = await loadAudioForPlayback(track.audio);
-    
-    if (success) {
-        document.getElementById('displayTitle').textContent = track.name;
-        
-        originalBPM = track.bpm;
-        currentBPM = track.bpm;
-        
-        document.getElementById('displayBPM').textContent = currentBPM;
-        
-        const slider = document.getElementById('bpmSlider');
-        slider.disabled = false;
-        slider.value = currentBPM;
-    }
-}
-
-window.removeTrack = async (id, event) => {
-    event.stopPropagation();
-    if(confirm("Excluir este ritmo?")) {
-        await deleteTrack(id);
-        loadLibrary();
-    }
-};
-
-// --- 6. EVENT LISTENERS ---
-
-document.addEventListener('DOMContentLoaded', () => {
-    loadLibrary();
-
-    // Upload UI
-    const btnSelect = document.getElementById('btnSelectFile');
-    const fileInput = document.getElementById('fileInput');
-    const nameDisplay = document.getElementById('fileNameDisplay');
-    const nameInput = document.getElementById('trackName');
-
-    btnSelect.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            nameDisplay.textContent = file.name;
-            nameInput.value = file.name.replace(/\.[^/.]+$/, "");
-        }
-    });
-
-    // Salvar
-    document.getElementById('btnSave').addEventListener('click', async () => {
-        const status = document.getElementById('statusMsg');
-        const bpmInput = document.getElementById('trackBPM');
-
-        if (!fileInput.files[0] || !nameInput.value) {
-            status.textContent = "⚠️ Selecione um arquivo e preencha o nome.";
-            status.style.color = "var(--accent)";
-            return;
-        }
-
-        status.textContent = "Salvando...";
-        status.style.color = "#fff";
-        document.getElementById('btnSave').disabled = true;
-
-        try {
-            const arrayBuffer = await fileInput.files[0].arrayBuffer();
-            await saveTrackToDB(nameInput.value, bpmInput.value, arrayBuffer);
-            
-            status.textContent = "✅ Salvo com sucesso!";
-            status.style.color = "var(--primary)";
-            
-            // Reset
-            fileInput.value = "";
-            nameDisplay.textContent = "Nenhum arquivo...";
-            nameInput.value = "";
-            loadLibrary();
-        } catch (e) {
-            status.textContent = "❌ Erro ao salvar.";
-            status.style.color = "var(--danger)";
-        }
-        document.getElementById('btnSave').disabled = false;
-    });
-
-    // Player Controls
-    document.getElementById('btnPlay').onclick = play;
-    document.getElementById('btnStop').onclick = stop;
-    
-    const btnMetro = document.getElementById('btnMetronome');
-    btnMetro.onclick = () => {
-        isMetronomeOn = !isMetronomeOn;
-        btnMetro.classList.toggle('active');
-    };
-
-    // Sliders
-    const bpmSlider = document.getElementById('bpmSlider');
-    bpmSlider.addEventListener('input', (e) => {
-        currentBPM = parseInt(e.target.value);
-        document.getElementById('displayBPM').textContent = currentBPM;
-        if (musicSource && isPlaying) {
-            musicSource.playbackRate.value = currentBPM / originalBPM;
-        }
-    });
-
-    document.getElementById('btnResetBPM').addEventListener('click', () => {
-        currentBPM = originalBPM;
-        bpmSlider.value = originalBPM;
-        document.getElementById('displayBPM').textContent = originalBPM;
-        if (musicSource && isPlaying) musicSource.playbackRate.value = 1.0;
-    });
-
-    document.getElementById('volMusic').oninput = (e) => musicGain.gain.value = e.target.value / 100;
-    document.getElementById('volClick').oninput = (e) => clickGain.gain.value = e.target.value / 100;
-
-    document.getElementById('progressBar').oninput = (e) => {
-        if (trackDuration > 0) {
-            pauseOffset = (e.target.value / 100) * trackDuration;
-            document.getElementById('timeCurrent').textContent = formatTime(pauseOffset);
-            if (isPlaying) { pause(); play(); }
-        }
-    };
-
-    document.getElementById('btnClearAll').onclick = () => {
-        if(confirm("Apagar toda a biblioteca?")) clearDB();
-    };
-});
+    const play
