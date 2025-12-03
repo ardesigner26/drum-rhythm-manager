@@ -1,6 +1,7 @@
-// app.js - CÓDIGO COMPLETO E FINAL
+// app.js - CÓDIGO COMPLETO COM DIAGNÓSTICO DE ERRO
 
 // --- 1. LISTA DE RITMOS (PRESETS) ---
+// Certifique-se que os arquivos no GitHub estão EXATAMENTE com esses nomes (minúsculos)
 const presets = [
     { name: "Arrocha", bpm: 134, url: "sounds/arrocha134.mp3" },
     { name: "Axé", bpm: 100, url: "sounds/axe100.mp3" },
@@ -134,29 +135,44 @@ function scheduler() {
     }
 }
 
+// FUNÇÃO ATUALIZADA PARA DIAGNÓSTICO DE ERRO
 async function loadAudioForPlayback(data, isUrl = false) {
     try {
         let arrayBuffer;
         
         if (isUrl) {
-            // Se for URL (Preset), baixa o arquivo
+            // Tenta baixar o arquivo do GitHub
             const response = await fetch(data);
-            if (!response.ok) throw new Error("Arquivo não encontrado");
+            
+            if (!response.ok) {
+                // Se o GitHub disser que não existe (404), avisa o usuário
+                throw new Error(`ARQUIVO NÃO ENCONTRADO (Erro ${response.status})!\nO sistema tentou buscar:\n"${data}"\n\nVerifique se o nome na pasta 'sounds' é EXATAMENTE igual (maiúsculas/minúsculas importam!).`);
+            }
+            
             arrayBuffer = await response.arrayBuffer();
         } else {
-            // Se for do Banco de Dados
+            // Se for do Banco de Dados Local
             arrayBuffer = data;
         }
 
-        const audioData = await ctx.decodeAudioData(arrayBuffer.slice(0));
-        musicBuffer = audioData;
-        trackDuration = musicBuffer.duration;
-        const timeTotal = document.getElementById('timeTotal');
-        if(timeTotal) timeTotal.textContent = formatTime(trackDuration);
-        return true;
+        // Tenta decodificar o áudio
+        try {
+            const audioData = await ctx.decodeAudioData(arrayBuffer.slice(0));
+            musicBuffer = audioData;
+            trackDuration = musicBuffer.duration;
+            
+            const timeTotal = document.getElementById('timeTotal');
+            if(timeTotal) timeTotal.textContent = formatTime(trackDuration);
+            
+            return true;
+        } catch (decodeError) {
+            throw new Error("O arquivo foi encontrado, mas está corrompido ou o formato não é aceito pelo iPhone.");
+        }
+
     } catch (e) {
         console.error(e);
-        alert("Erro ao carregar áudio. Verifique se o arquivo existe na pasta 'sounds'.");
+        // Mostra o erro detalhado na tela
+        alert("ERRO:\n" + e.message);
         return false;
     }
 }
