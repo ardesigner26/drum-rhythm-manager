@@ -1,7 +1,6 @@
-// app.js - CÓDIGO COMPLETO COM DIAGNÓSTICO DE ERRO
+// app.js - CÓDIGO COM FUNÇÃO DE LOOP INFINITO
 
 // --- 1. LISTA DE RITMOS (PRESETS) ---
-// Certifique-se que os arquivos no GitHub estão EXATAMENTE com esses nomes (minúsculos)
 const presets = [
     { name: "Arrocha", bpm: 134, url: "sounds/arrocha134.mp3" },
     { name: "Axé", bpm: 100, url: "sounds/axe100.mp3" },
@@ -38,10 +37,11 @@ let trackDuration = 0;
 let metronomeInterval = null;
 let nextNoteTime = 0;
 
-// BPM
+// BPM e Loop
 let originalBPM = 120;
 let currentBPM = 120;
 let isMetronomeOn = false;
+let isLooping = false; // Nova variável para o Loop
 
 // --- 3. BANCO DE DADOS (IndexedDB) ---
 const DB_NAME = "DrumProDB";
@@ -135,27 +135,20 @@ function scheduler() {
     }
 }
 
-// FUNÇÃO ATUALIZADA PARA DIAGNÓSTICO DE ERRO
 async function loadAudioForPlayback(data, isUrl = false) {
     try {
         let arrayBuffer;
         
         if (isUrl) {
-            // Tenta baixar o arquivo do GitHub
             const response = await fetch(data);
-            
             if (!response.ok) {
-                // Se o GitHub disser que não existe (404), avisa o usuário
-                throw new Error(`ARQUIVO NÃO ENCONTRADO (Erro ${response.status})!\nO sistema tentou buscar:\n"${data}"\n\nVerifique se o nome na pasta 'sounds' é EXATAMENTE igual (maiúsculas/minúsculas importam!).`);
+                throw new Error(`ARQUIVO NÃO ENCONTRADO (Erro ${response.status})!\nO sistema tentou buscar:\n"${data}"`);
             }
-            
             arrayBuffer = await response.arrayBuffer();
         } else {
-            // Se for do Banco de Dados Local
             arrayBuffer = data;
         }
 
-        // Tenta decodificar o áudio
         try {
             const audioData = await ctx.decodeAudioData(arrayBuffer.slice(0));
             musicBuffer = audioData;
@@ -166,12 +159,11 @@ async function loadAudioForPlayback(data, isUrl = false) {
             
             return true;
         } catch (decodeError) {
-            throw new Error("O arquivo foi encontrado, mas está corrompido ou o formato não é aceito pelo iPhone.");
+            throw new Error("O arquivo foi encontrado, mas está corrompido.");
         }
 
     } catch (e) {
         console.error(e);
-        // Mostra o erro detalhado na tela
         alert("ERRO:\n" + e.message);
         return false;
     }
@@ -184,6 +176,9 @@ function play() {
     musicSource = ctx.createBufferSource();
     musicSource.buffer = musicBuffer;
     musicSource.connect(musicGain);
+
+    // Configura o Loop
+    musicSource.loop = isLooping;
 
     const playbackRate = currentBPM / originalBPM;
     musicSource.playbackRate.value = playbackRate;
@@ -209,7 +204,13 @@ function pause() {
     cancelAnimationFrame(metronomeInterval);
     
     const playbackRate = currentBPM / originalBPM;
-    pauseOffset = (ctx.currentTime - startTime) * playbackRate;
+    
+    // Se estiver em loop, precisamos calcular o offset com base no módulo
+    if (isLooping) {
+        pauseOffset = ((ctx.currentTime - startTime) * playbackRate) % trackDuration;
+    } else {
+        pauseOffset = (ctx.currentTime - startTime) * playbackRate;
+    }
     
     togglePlayBtn(false);
 }
@@ -233,13 +234,23 @@ function togglePlayBtn(playing) {
 function updateProgress() {
     if (!isPlaying) return;
     const playbackRate = currentBPM / originalBPM;
-    const current = (ctx.currentTime - startTime) * playbackRate;
+    
+    // Cálculo do tempo atual
+    let current = (ctx.currentTime - startTime) * playbackRate;
 
-    if (current >= trackDuration) {
-        stop();
-    } else {
+    if (isLooping) {
+        // Se for loop, o tempo visual volta pro zero quando acaba
+        current = current % trackDuration;
         updateUIProgress(current);
         requestAnimationFrame(updateProgress);
+    } else {
+        // Se não for loop, para quando chegar no fim
+        if (current >= trackDuration) {
+            stop();
+        } else {
+            updateUIProgress(current);
+            requestAnimationFrame(updateProgress);
+        }
     }
 }
 
@@ -266,7 +277,7 @@ async function loadLibrary() {
 
     list.innerHTML = '';
 
-    // 1. Carregar Presets (Ritmos do App)
+    // 1. Carregar Presets
     if (presets.length > 0) {
         const header = document.createElement('li');
         header.innerHTML = '<small style="color:var(--primary); text-transform:uppercase; letter-spacing:1px; margin-top:10px; display:block;">Ritmos do App</small>';
@@ -287,10 +298,9 @@ async function loadLibrary() {
         });
     }
 
-    // 2. Carregar Ritmos do Usuário (Banco de Dados)
+    // 2. Carregar Ritmos do Usuário
     try {
         const userTracks = await getAllTracks();
-        
         if (userTracks.length > 0) {
             const headerUser = document.createElement('li');
             headerUser.innerHTML = '<small style="color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-top:20px; display:block;">Seus Uploads</small>';
@@ -329,13 +339,11 @@ async function selectTrack(track, element, isPreset) {
     document.querySelectorAll('.track-item').forEach(el => el.classList.remove('active'));
     if(element) element.classList.add('active');
 
-    // Se for Preset, passa a URL. Se for DB, passa o ArrayBuffer.
     const dataToLoad = isPreset ? track.url : track.audio;
     const success = await loadAudioForPlayback(dataToLoad, isPreset);
     
     if (success) {
         if(title) title.textContent = track.name;
-        
         originalBPM = track.bpm;
         currentBPM = track.bpm;
         
@@ -363,7 +371,7 @@ window.removeTrack = async (id, event) => {
 document.addEventListener('DOMContentLoaded', () => {
     loadLibrary();
 
-    // Upload UI
+    // Elementos
     const btnSelect = document.getElementById('btnSelectFile');
     const fileInput = document.getElementById('fileInput');
     const nameDisplay = document.getElementById('fileNameDisplay');
@@ -374,6 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnPlay = document.getElementById('btnPlay');
     const btnStop = document.getElementById('btnStop');
     const btnMetro = document.getElementById('btnMetronome');
+    const btnLoop = document.getElementById('btnLoop'); // NOVO BOTÃO
     const bpmSlider = document.getElementById('bpmSlider');
     const btnResetBPM = document.getElementById('btnResetBPM');
     const volMusic = document.getElementById('volMusic');
@@ -391,7 +400,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Salvar
     if(btnSave) btnSave.addEventListener('click', async () => {
         const status = document.getElementById('statusMsg');
         const bpmInput = document.getElementById('trackBPM');
@@ -432,7 +440,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSave.disabled = false;
     });
 
-    // Player Controls
     if(btnPlay) btnPlay.onclick = play;
     if(btnStop) btnStop.onclick = stop;
     
@@ -441,7 +448,17 @@ document.addEventListener('DOMContentLoaded', () => {
         btnMetro.classList.toggle('active');
     };
 
-    // Sliders
+    // LÓGICA DO BOTÃO DE LOOP
+    if(btnLoop) btnLoop.onclick = () => {
+        isLooping = !isLooping;
+        btnLoop.classList.toggle('active');
+        
+        // Se estiver tocando, atualiza o estado do loop em tempo real
+        if(musicSource) {
+            musicSource.loop = isLooping;
+        }
+    };
+
     if(bpmSlider) bpmSlider.addEventListener('input', (e) => {
         currentBPM = parseInt(e.target.value);
         const display = document.getElementById('displayBPM');
