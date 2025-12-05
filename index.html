@@ -15,7 +15,7 @@
             <h1><span class="material-icons">equalizer</span> Drum Rhythm Manager</h1>
         </header>
 
-        <!-- 1. ÁREA DE UPLOAD (Restaurada e Estilizada) -->
+        <!-- 1. ÁREA DE UPLOAD -->
         <section class="card upload-section">
             <div class="card-header">
                 <span class="material-icons">cloud_upload</span>
@@ -62,9 +62,21 @@
 
             <!-- Controles Principais -->
             <div class="controls-main">
-                <button id="btnStop" class="btn-round btn-danger"><span class="material-icons">stop</span></button>
-                <button id="btnPlay" class="btn-round btn-primary"><span class="material-icons">play_arrow</span></button>
-                <button id="btnMetronome" class="btn-round btn-secondary"><span class="material-icons">hourglass_empty</span></button>
+                <button id="btnLoop" class="btn-round btn-secondary" title="Loop Infinito">
+                    <span class="material-icons">repeat</span>
+                </button>
+                
+                <button id="btnStop" class="btn-round btn-danger">
+                    <span class="material-icons">stop</span>
+                </button>
+                
+                <button id="btnPlay" class="btn-round btn-primary">
+                    <span class="material-icons">play_arrow</span>
+                </button>
+                
+                <button id="btnMetronome" class="btn-round btn-secondary" title="Metrônomo">
+                    <span class="material-icons">hourglass_empty</span>
+                </button>
             </div>
 
             <!-- Controles de Ajuste (Sliders) -->
